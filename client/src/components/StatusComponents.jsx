@@ -4,6 +4,7 @@ import { Container, Row, Col, Button, Form } from 'react-bootstrap';
 import API from '../API.js';
 import '../App.css';
 
+
 const Status = ({ loggedIn }) => {
   const { type } = useParams();
   const [seats, setSeats] = useState([]);
@@ -88,24 +89,29 @@ const Status = ({ loggedIn }) => {
 
   const handleSeatSelection = () => {
     resetSeats();
-
+  
     const availableSeats = seats.filter((seat) => seat.status === 'available');
     const selected = availableSeats.slice(0, numberOfSeats);
-
+  
     if (selected.length === 0) {
       setError('No suitable seats found');
       return;
     }
-
+  
+    if (numberOfSeats > availableSeats.length) {
+      setError('Not enough available seats');
+      return;
+    }
+  
     const selectedSeatCodes = selected.map((seat) => seat.row + seat.position);
-
+  
     const updatedSeats = seats.map((seat) => {
       if (selectedSeatCodes.includes(seat.row + seat.position)) {
         return { ...seat, status: 'requested' };
       }
       return seat;
     });
-
+  
     setSeats(updatedSeats);
     setSelectedSeats(selectedSeatCodes);
     updateSeatStatus(updatedSeats);
@@ -130,7 +136,7 @@ const Status = ({ loggedIn }) => {
             {chunk.map((seat) => (
               <Col key={seat.id} xs="auto">
                 <Button
-                  className={`seat ${seat.status} ${selectedSeats.includes(seat.row + seat.position) ? 'selected' : ''}`}
+                  className={`seat ${seat.status}`}
                   onClick={() => reserveSeat(seat.id, seat.row + seat.position)}
                   disabled={!loggedIn || seat.status === 'occupied'}
                   style={{ width: '60px', height: '60px', padding: '0' }}
@@ -152,9 +158,9 @@ const Status = ({ loggedIn }) => {
         <Col md={2} className="sidebar">
           <div className="sidebar-content">
             <h3>Seat Status</h3>
-            {loggedIn && (
-              <div>
-                <Row>
+
+            <div>
+            <Row>
                   <Col>
                     <p>Total Seats: {seatStatus.totalSeats}</p>
                   </Col>
@@ -169,41 +175,64 @@ const Status = ({ loggedIn }) => {
                     <p>Occupied Seats: {seatStatus.occupiedSeats}</p>
                   </Col>
                 </Row>
+            </div>
+            {loggedIn && (
+              <div>
+              
                 <Row>
                   <Col>
                     <p>Requested Seats: {seatStatus.requestedSeats}</p>
                   </Col>
                 </Row>
-                {selectedSeats.length > 0 && (
-                  <Row>
-                    <Col>
-                      <p className="text-danger">Selected/Reserved Seats: {selectedSeats.join(', ')}</p>
-                    </Col>
-                  </Row>
-                )}
+               
                 <Form>
                   <Form.Group controlId="formNumberOfSeats">
-                    <Form.Label>Number of Seats</Form.Label>
-                    <Form.Control
+                    <Form.Label>Seats Finder</Form.Label>
+                    <Row>
+                      <Col> <Form.Control
                       type="number"
                       min="1"
                       value={numberOfSeats}
                       onChange={handleNumberOfSeatsChange}
-                    />
+                    /></Col>
+                      <Col><Button onClick={handleSeatSelection}>Find</Button>
+                      </Col>
+                      {error && <p className="text-danger">{error}</p>}
+                    </Row>
+                   
                   </Form.Group>
-                  <Button onClick={handleSeatSelection}>Reserve</Button>
-                  {error && <p className="text-danger">{error}</p>}
+                  
                 </Form>
+
+                {selectedSeats.length > 0 && (
+                  <div className='mt-3'>
+                  <Row>
+                    <Col>
+                      <p className="text-danger">Selected Seats: {selectedSeats.join(', ')}</p>
+                    </Col>
+                  </Row>
+
+                  <Row>
+                    <Col>
+                    <Button>Book now!</Button>                    
+                    </Col>
+                  </Row>
+                  </div>
+                )}
               </div>
             )}
           </div>
         </Col>
         <Col md={10} className="main-content">
-          <Row>
-            <h1 className="mt-4">Seat Statuses - {type} Plane</h1>
+          <Row className='text-center mb-5'>
+            <h1 className="mt-4"> Our seats for: {type} plane</h1>
           </Row>
+          <Row>
           {renderSeatGrid()}
+
+          </Row>
         </Col>
+        
       </Row>
     </Container>
   );
