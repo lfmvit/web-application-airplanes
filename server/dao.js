@@ -78,10 +78,10 @@ exports.getUsers = () => {
 
   
 // Reservation DAO methods
-exports.createReservation = (userId, planeType, status) => {
+exports.createReservation = (userId, planeType, seats) => {
     return new Promise((resolve, reject) => {
-      const query = `INSERT INTO reservations (user_id, plane_type, status) VALUES (?, ?, ?)`;
-      db.run(query, [userId, planeType, status], function (error) {
+      const query = `INSERT INTO reservations (user_id, plane_type, seats) VALUES (?, ?, ?)`;
+      db.run(query, [userId, planeType, seats], function (error) {
         if (error) {
           reject(error);
         } else {
@@ -104,6 +104,19 @@ exports.createReservation = (userId, planeType, status) => {
     });
   };
   
+  exports.deleteReservationById = (reservationId) => {
+    return new Promise((resolve, reject) => {
+      const query = `DELETE FROM reservations WHERE id = ?`;
+      db.run(query, [reservationId], function (error) {
+        if (error) {
+          reject(error);
+        } else {
+          resolve();
+        }
+      });
+    });
+  };
+
   // Seat DAO methods
 
   /*
@@ -128,27 +141,60 @@ exports.createReservation = (userId, planeType, status) => {
     });
   };
   
-
   exports.updateSeatStatuses = (seatsToUpdate) => {
     return new Promise((resolve, reject) => {
-      const placeholders = seatsToUpdate.map(() => '(?, ?)').join(', ');
-      const values = seatsToUpdate.flatMap((seat) => [seat.status, seat.id]);
-  
       const query = `
-        UPDATE seats 
-        SET status = CASE id
-          ${seatsToUpdate.map((seat) => `WHEN ${seat.id} THEN ?`).join(' ')}
-          ELSE status
-        END
-        WHERE id IN (${placeholders})
+        UPDATE seats
+        SET status = ?
+        WHERE id = ?
       `;
   
-      db.run(query, values, function (error) {
-        if (error) {
-          reject(error);
-        } else {
-          resolve();
-        }
+      seatsToUpdate.forEach((seat) => {
+        db.run(query, [seat.status, seat.id], function (error) {
+          if (error) {
+            reject(error);
+            return;
+          }
+        });
       });
+  
+      resolve();
     });
   };
+
+  exports.checkSeatsAvailability = async (seatIds) => {
+    try {
+      console.log('in dao: ' + seatIds);
+  
+      // Generate the placeholders for the SQL query
+      const placeholders = seatIds.map(() => '?').join(', ');
+  
+      // Query the database to check seat availability
+      const seats = await new Promise((resolve, reject) => {
+        const query = `SELECT id, status FROM seats WHERE id IN (${placeholders})`;
+        db.all(query, seatIds, (error, rows) => {
+          if (error) {
+            reject(error);
+          } else {
+            resolve(rows);
+          }
+        });
+      });
+  
+      const occupiedSeats = [];
+  
+      // Iterate through the seats and collect the occupied seat IDs
+      for (const seat of seats) {
+        if (seat.status === 'occupied') {
+          occupiedSeats.push(seat.id);
+        }
+      }
+  
+      return {
+        occupiedSeats,
+      };
+    } catch (error) {
+      throw error;
+    }
+  };
+  

@@ -1,4 +1,4 @@
-import { Reservation ,Seat } from './models';
+import { Reservation, Seat } from './models';
 const SERVER_URL = 'http://localhost:3001';
 
 
@@ -16,95 +16,75 @@ const getStatusByType = async (type) => {
 };
 
 
-    const updateStatus = async (seatsToUpdate) => {
-        const response = await fetch(SERVER_URL + '/api/planes/:type/reservations', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(seatsToUpdate),
-        });
-        if (!response.ok) {
-          const errMessage = await response.json();
-          throw new Error(errMessage);
-        }
-      };
+const getReservationsByUserId = async (userId) => {
+  try {
+    const response = await fetch(SERVER_URL + `/api/user/reservations`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+    });
 
+    if (response.ok) {
+      const reservationsData = await response.json();
 
+      console.log(reservationsData);
+      const reservations = reservationsData.map((reservation) => {
+        const { id, user_id, plane_type, seats } = reservation;
+        const parsedSeats = JSON.parse(seats); // Convert seats string to array
+        const reservationObj = new Reservation(id, user_id, plane_type, parsedSeats);
+        console.log(reservationObj)
 
-/* 
-const getReservationsByUserId = async () => {
-    const response = await fetch(SERVER_URL + '/api/questions');
-    if(response.ok) {
-      const questionsJson = await response.json();
-      return questionsJson.map(q => new Question(q.id, q.text, q.author, q.date));
+        return reservationObj;
+      });
+      return reservations;
+    } else {
+      throw new Error('Failed to fetch reservations');
     }
-    else
-      throw new Error('Internal server error');
+  } catch (error) {
+    throw error;
   }
+};
 
-  const deleteReservationById = async () => {
-    const response = await fetch(SERVER_URL + '/api/questions');
-    if(response.ok) {
-      const questionsJson = await response.json();
-      return questionsJson.map(q => new Question(q.id, q.text, q.author, q.date));
+const createReservation = async (reservation) => {
+  try {
+    const response = await fetch(SERVER_URL + '/api/user/reservations', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({ reservation }),
+    });
+
+    if (!response.ok) {
+      throw await response.json()
     }
-    else
-      throw new Error('Internal server error');
+  } catch (error) {
+    throw error;
   }
- */
+};
 
-/* const getAnswers = async (questionId) => {
-  const response = await fetch(SERVER_URL + `/api/questions/${questionId}/answers`);
-  const answersJson = await response.json();
-  if(response.ok) {
-    return answersJson.map(ans => new Answer(ans.id, ans.text, ans.author, ans.date, ans.score));
+const deleteReservation = async (reservation) => {
+  try {
+    const response = await fetch(SERVER_URL + '/api/user/reservations', {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({ reservation }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to delete reservation');
+    }
+  } catch (error) {
+    throw error;
   }
-  else
-    throw answersJson;
-} */
+};
 
-/* const vote = async (answerId) => {
-  const response = await fetch(`${SERVER_URL}/api/answers/${answerId}/vote`, {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({vote: 'upvote'}),
-    credentials: 'include'
-  });
-
-  if(!response.ok) {
-    const errMessage = await response.json();
-    throw errMessage;
-  }
-  else return null;
-  // TODO: add improved error handling
-} */
-
-/* const addAnswer = async (answer, questionId) => {
-  const response = await fetch(`${SERVER_URL}/api/questions/${questionId}/answers`, {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({text: answer.text, author: answer.name, score: 0, date: answer.date.format('YYYY-MM-DD')})
-  });
-
-  if(!response.ok) {
-    const errMessage = await response.json();
-    throw errMessage;
-  }
-  else return null; */
-
-/* 
-const updateAnswer = async (answer) => {
-  const response = await fetch(`${SERVER_URL}/api/answers/${answer.id}`, {
-    method: 'PUT',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({text: answer.text, author: answer.name, score: answer.score, date: answer.date.format('YYYY-MM-DD')})
-  });
-
-  if(!response.ok) {
-    const errMessage = await response.json();
-    throw errMessage;
-  }
-  else return null;
-} */
 
 const logIn = async (credentials) => {
   const response = await fetch(SERVER_URL + '/api/sessions', {
@@ -115,7 +95,7 @@ const logIn = async (credentials) => {
     credentials: 'include',
     body: JSON.stringify(credentials),
   });
-  if(response.ok) {
+  if (response.ok) {
     const user = await response.json();
     return user;
   }
@@ -137,7 +117,7 @@ const getUserInfo = async () => {
   }
 };
 
-const logOut = async() => {
+const logOut = async () => {
   const response = await fetch(SERVER_URL + '/api/sessions/current', {
     method: 'DELETE',
     credentials: 'include'
@@ -146,5 +126,5 @@ const logOut = async() => {
     return null;
 }
 
-const API = {getStatusByType, updateStatus, logIn, logOut, getUserInfo};
+const API = { deleteReservation, createReservation, getReservationsByUserId, getStatusByType, logIn, logOut, getUserInfo };
 export default API;

@@ -1,9 +1,8 @@
-function Reservation(id, userId, planeType, status) {
+function Reservation(id, userId, planeType, seats) {
     this.id = id;
     this.userId = userId;
     this.planeType = planeType;
-    this.status = status;
-    this.seats = [];
+    this.seats = seats;
   
 
   this.addSeat = (seat) =>  {

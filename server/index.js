@@ -7,7 +7,7 @@ const app = new express();
 const port = 3001;
 
 const morgan = require('morgan');
-const {check, validationResult} = require('express-validator');
+const {check, validationResult} = require('express-validator'); //!not used right now
 
 
 const cors = require('cors');
@@ -31,11 +31,15 @@ app.use(cors(corsOptions));
 
 // Passport: set up local strategy
 passport.use(new LocalStrategy(async function verify(username, password, cb) {
+  try{
   const user = await dao.getUser(username, password);
   if(!user)
     return cb(null, false, 'Incorrect username or password.');
     
   return cb(null, user);
+  }catch{
+    return cb(null, false, 'Incorrect username or password.');
+  }
 }));
 
 passport.serializeUser(function (user, cb) {
@@ -88,28 +92,89 @@ app.get('/api/planes/:type/status', async (req, res) => {
 // POST /api/planes/:type/reservation //set up a new reservation
 // need logged in 
 
-app.post('/api/planes/:type/reservations', isLoggedIn, async (req, res) => {
+app.post('/api/user/reservations', isLoggedIn, async (req, res) => {
   try {
-    // Retrieve the seats to update from the request body
-    const seatsToUpdate = req.body;
-    
-    // Perform the bulk update of seat statuses
-    await dao.updateSeatStatuses(seatsToUpdate);
-    
-    // Respond with a success message
-    res.status(200).json({ message: 'Seat statuses updated successfully' });
+    const { reservation } = req.body;
+
+    const userId = reservation.userId;
+    const planeType = reservation.type;
+    const seats = reservation.seats;
+
+    const formattedSeats = seats.map(seat => ({
+      seat: seat.seat,
+      id: seat.id
+    }));
+
+    // Get the seat IDs associated with the reservation
+    const seatIds = seats.map(seat => seat.id);
+
+    // Check seat availability before creating the reservation
+    const { availableSeats, occupiedSeats } = await dao.checkSeatsAvailability(seatIds);
+
+    if (occupiedSeats.length > 0) {
+      // Some seats are already occupied, return the occupied seats to the application
+      return res.status(400).json({ error: 'Some Seats already have been occupied', occupiedSeats });
+    }
+
+    const seatsToUpdate = seatIds.map(seatId => ({ id: seatId, status: 'occupied' }));
+    const seatsString = JSON.stringify(formattedSeats);
+
+    await Promise.all([
+      dao.createReservation(userId, planeType, seatsString),
+      dao.updateSeatStatuses(seatsToUpdate)
+    ]);
+
+    // Return a success response
+    res.sendStatus(204);
   } catch (error) {
-    // Handle any errors that occur during the update process
-    res.status(500).json({ error: 'Failed to update seat statuses' });
+    console.log('Error creating reservation:', error);
+    res.status(500).json({ error: 'Failed to create reservation' });
   }
 });
 
-// DELETE /api/planes/:type
 
-app.delete('/api/questions/:id/answers', async (req, res) => {
+// get reservations by id user
 
+app.get('/api/user/reservations', isLoggedIn, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    const userReservation = await dao.getReservationsByUserId(userId);
+    res.status(200).json(userReservation);
+
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch reservation' });
+  }
 });
 
+
+// DELETE /api/planes/:type
+app.delete('/api/user/reservations', isLoggedIn, async (req, res) => {
+  try {
+    const { reservation } = req.body;
+
+    const reservationId = reservation.id;
+
+    // Get the seat IDs associated with the reservation
+    const seatIds = reservation.seats.map(seat => seat.id);
+    
+    // Prepare the seat objects to update status
+    const seatsToUpdate = seatIds.map(seatId => ({ id: seatId, status: 'available' }));
+
+
+    // Delete the reservation and update the status of seats in the database
+    await Promise.all([
+      dao.deleteReservationById(reservationId),
+      dao.updateSeatStatuses(seatsToUpdate)
+    ]);
+
+    res.sendStatus(200);
+  } catch (error) {
+    console.log('Error deleting reservation:', error);
+
+    res.status(500).json({ error: 'Failed to delete reservation' });
+  }
+});
 
 // SESSION ROUTES
 

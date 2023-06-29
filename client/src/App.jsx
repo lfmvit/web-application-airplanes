@@ -11,24 +11,44 @@ import API from './API';
 import { LoginForm } from './components/AuthComponents';
 
 function App() {
-  const [userReservation, setUserReservation] = useState([]);
+  const [userReservations, setUserReservations] = useState([]);
   const [loggedIn, setLoggedIn] = useState(false);
   const [message, setMessage] = useState('');
+  const [user, setUser] = useState([])
+  const [update, setUpdate] = useState(false);
 
-  /* useEffect(()=> {
-    // get all the questions from API
-    const getQuestions = async () => {   //! i would like here to set the reservations state to show current reservations
-      const questions = await API.getQuestions();
-      setQuestions(questions);
+  useEffect(() => {
+    if (loggedIn) {
+      fetchUserReservations();
+    }else{
+      setUserReservations([])
     }
-    getQuestions();
-  }, []); */
+  }, [loggedIn, update]);
+
+  const fetchUserReservations = async () => {
+    try {
+      const reservations = await API.getReservationsByUserId(user.id); 
+      setUserReservations(reservations);
+      setUpdate(false)
+
+    } catch (error) {
+      console.error(error);
+      // Handle error
+    }
+  };
 
   useEffect(() => {
     const checkAuth = async () => {
-      await API.getUserInfo(); // we have the user info here 
+      const user = await API.getUserInfo(); // we have the user info here 
+      if(user){
+      setUser({
+        id: user.id,
+        username: user.username,
+      })
+    
       setLoggedIn(true);
     };
+  }
     checkAuth();
   }, [loggedIn]);
 
@@ -50,16 +70,35 @@ function App() {
   };
 
 
+  const handleDeleteReservation = async (reservation) => {
+    try {
+      await API.deleteReservation(reservation);
+      setMessage({ msg: `Reservation #${reservation.id} has been deleted successfully!` });
+      setUpdate(true);
+
+    } catch (error) {
+      setMessage({ msg: error, type: 'danger' });
+    }
+  };
+
+  
+  const handleCreateReservation = async () => {
+    try {
+      //setMessage({ msg: `Reservation #${reservation.id} has been created successfully!` });
+      setUpdate(true);
+
+    } catch (error) {
+      setMessage({ msg: error, type: 'danger' });
+    }
+  };
+
+  
+
+
+
   return (
     <BrowserRouter>
       <Routes>
-        {/* 
-        - / (index) -> all the questions
-        - /questions/:questionId -> the page with the :questionId question info and its answers
-        - /questions/:questionId/addAnswer -> the form to add a new answer
-        - /questions/:questionId/editAnswer/:answerId -> the form to update the :answerId answer
-        - * -> not found
-        */}
         <Route
           element={
             <>
@@ -77,15 +116,10 @@ function App() {
             </>
           }
         >
-          <Route index element={<Planes loggedIn={loggedIn} userReservation={userReservation} />} />
-          
-          <Route path ="/planes/:type" element={<Status loggedIn={loggedIn} userReservation={userReservation} />} />
-          
-          
-          
+          <Route index element={<Planes loggedIn={loggedIn} userReservations={userReservations} onDelete={handleDeleteReservation} />} />
+          <Route path ="/planes/:type" element={<Status loggedIn={loggedIn} userReservations={userReservations} userId={user.id} onBook={handleCreateReservation} />} />
           <Route path="*" element={<NotFound />} />
           <Route path="/login" element={loggedIn ? <Navigate replace to="/" /> : <LoginForm login={handleLogin} />}
-          
           />
         </Route>
       </Routes>
