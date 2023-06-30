@@ -8,7 +8,7 @@ function NavHeader(props) {
   <Navbar bg="primary" variant="dark">
     <Container fluid>
       <Link to='/' className='navbar-brand'>
-      <img src={Wing} style={{ width: '45px', height: 'auto', fill: 'white' }} alt="Wing" />
+      <img src={Wing} style={{ width: '50px', height: 'auto', fill: 'white' }} alt="Wing" />
         Faloppa's Wings
       </Link>
       
