@@ -222,7 +222,7 @@ app.get('/api/sessions/current', (req, res) => {
 // DELETE /api/session/current
 app.delete('/api/sessions/current', isLoggedIn, (req, res) => {
   req.logout(() => {
-    res.send(204);
+    res.sendStatus(204);
   });
 });
 

@@ -58,7 +58,7 @@ const Status = ({ loggedIn, onBook, userId, userReservations }) => {
 
     fetchSeatStatuses();
     checkAlreadyReserved()
-  }, [type]);
+  }, [type, userReservations]);
 
   useEffect(() => {
     updateSeatStatus(seats);
@@ -89,7 +89,7 @@ const Status = ({ loggedIn, onBook, userId, userReservations }) => {
   };
 
   const reserveSeat = (seatId, seatCode) => {
-    if (!loggedIn) {
+    if (!loggedIn || alreadyReserved) {
       return; // Do nothing if not logged in
     }
 
@@ -359,7 +359,7 @@ const Status = ({ loggedIn, onBook, userId, userReservations }) => {
                 {alreadyReserved && loggedIn &&(
                 <>
                 <p>You already have a reservation for this plane.</p>
-                <p className="selected-seats-label mt-3">Booked Seats:</p>
+                <p className="selected-seats-label mt-3">Your booked seats:</p>
                 <p className='selected-seat mt-3'> {getBookedSeats(userReservations, type)}</p>
                 
                 </>
