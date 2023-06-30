@@ -7,9 +7,6 @@ const app = new express();
 const port = 3001;
 
 const morgan = require('morgan');
-const {check, validationResult} = require('express-validator'); //!not used right now
-
-
 const cors = require('cors');
 const dao = require('./dao');
 
@@ -32,7 +29,9 @@ app.use(cors(corsOptions));
 // Passport: set up local strategy
 passport.use(new LocalStrategy(async function verify(username, password, cb) {
   try{
-  const user = await dao.getUser(username, password);
+  const userDAO = await dao.getUser(username, password);
+  const user = {id: userDAO.id, username: userDAO.username}
+  console.log(user)
   if(!user)
     return cb(null, false, 'Incorrect username or password.');
     
@@ -58,10 +57,6 @@ app.use(session({
 }));
 
 app.use(passport.authenticate('session'));
-// activate the server
-app.listen(port, () => {
-  console.log(`Server listening at http://localhost:${port}`);
-});
 
 
 // loggedin middleware
@@ -76,21 +71,24 @@ const isLoggedIn = (req, res, next) => {
 
 
 
-// core routes
+// core routes--
 
 
 app.get('/api/planes/:type/status', async (req, res) => {
   const type = req.params.type;
   try {
     const reservations = await dao.getSeatStatusByPlaneType(type);
-    res.status(200).json(reservations);
+    if(!reservations) {
+    return res.status(404).json({error: 'No seats or planetype found in the database'});
+    }
+    return res.status(200).json(reservations);
   } catch (error) {
-    res.status(500).end();
+    return res.status(500).end();
   }
 });
 
-// POST /api/planes/:type/reservation //set up a new reservation
-// need logged in 
+// POST /api/planes/:type/reservation 
+// set up a new reservation
 
 app.post('/api/user/reservations', isLoggedIn, async (req, res) => {
   try {
@@ -105,11 +103,19 @@ app.post('/api/user/reservations', isLoggedIn, async (req, res) => {
       id: seat.id
     }));
 
-    // Get the seat IDs associated with the reservation
+    // integrity check on type first of all
+    const existingReservation = await dao.getReservationByUserAndPlaneType(userId, planeType);
+
+      if (existingReservation) {
+  // User already has a reservation for the same plane type, return an error
+      return res.status(400).json({ error: 'User already has a reservation for this plane type' });
+    }
+
+    // map the seat IDs associated with the reservation
     const seatIds = seats.map(seat => seat.id);
 
     // Check seat availability before creating the reservation
-    const { availableSeats, occupiedSeats } = await dao.checkSeatsAvailability(seatIds);
+    const { occupiedSeats } = await dao.checkSeatsAvailability(seatIds);
 
     if (occupiedSeats.length > 0) {
       // Some seats are already occupied, return the occupied seats to the application
@@ -117,6 +123,7 @@ app.post('/api/user/reservations', isLoggedIn, async (req, res) => {
     }
 
     const seatsToUpdate = seatIds.map(seatId => ({ id: seatId, status: 'occupied' }));
+      // Storing json format string
     const seatsString = JSON.stringify(formattedSeats);
 
     await Promise.all([
@@ -140,6 +147,7 @@ app.get('/api/user/reservations', isLoggedIn, async (req, res) => {
     const userId = req.user.id;
     
     const userReservation = await dao.getReservationsByUserId(userId);
+    
     res.status(200).json(userReservation);
 
   } catch (error) {
@@ -152,6 +160,9 @@ app.get('/api/user/reservations', isLoggedIn, async (req, res) => {
 app.delete('/api/user/reservations', isLoggedIn, async (req, res) => {
   try {
     const { reservation } = req.body;
+    if(!reservation){
+      return res.status(400).json({error: 'body request is missing'})
+    }
 
     const reservationId = reservation.id;
 
@@ -168,7 +179,7 @@ app.delete('/api/user/reservations', isLoggedIn, async (req, res) => {
       dao.updateSeatStatuses(seatsToUpdate)
     ]);
 
-    res.sendStatus(200);
+    res.sendStatus(204);
   } catch (error) {
     console.log('Error deleting reservation:', error);
 
@@ -202,15 +213,20 @@ app.post('/api/sessions', function(req, res, next) {
 // GET /api/sessions/current
 app.get('/api/sessions/current', (req, res) => {
   if(req.isAuthenticated()) {
-    res.json(req.user);
+    res.status(200).json(req.user);
   }
   else
     res.status(401).json({error: 'Not authenticated'});
 });
 
 // DELETE /api/session/current
-app.delete('/api/sessions/current', (req, res) => {
+app.delete('/api/sessions/current', isLoggedIn, (req, res) => {
   req.logout(() => {
-    res.end();
+    res.send(204);
   });
+});
+
+// activate the server
+app.listen(port, () => {
+  console.log(`Server listening at http://localhost:${port}`);
 });

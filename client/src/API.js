@@ -29,12 +29,10 @@ const getReservationsByUserId = async (userId) => {
     if (response.ok) {
       const reservationsData = await response.json();
 
-      console.log(reservationsData);
       const reservations = reservationsData.map((reservation) => {
         const { id, user_id, plane_type, seats } = reservation;
         const parsedSeats = JSON.parse(seats); // Convert seats string to array
         const reservationObj = new Reservation(id, user_id, plane_type, parsedSeats);
-        console.log(reservationObj)
 
         return reservationObj;
       });

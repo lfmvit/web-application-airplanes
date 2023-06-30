@@ -39,6 +39,7 @@ function App() {
 
   useEffect(() => {
     const checkAuth = async () => {
+      try{
       const user = await API.getUserInfo(); // we have the user info here 
       if(user){
       setUser({
@@ -48,6 +49,7 @@ function App() {
     
       setLoggedIn(true);
     };
+  }catch{ err =>{return null;}}
   }
     checkAuth();
   }, [loggedIn]);
@@ -102,8 +104,8 @@ function App() {
         <Route
           element={
             <>
-              <NavHeader loggedIn={loggedIn} handleLogout={handleLogout} />
-              <Container fluid className="mt-3">
+              <NavHeader loggedIn={loggedIn} user={user} handleLogout={handleLogout} />
+              <Container fluid  className="mt-3 text-center">
                 {message && (
                   <Row>
                     <Alert variant={message.type} onClose={() => setMessage('')} dismissible>
@@ -116,7 +118,8 @@ function App() {
             </>
           }
         >
-          <Route index element={<Planes loggedIn={loggedIn} userReservations={userReservations} onDelete={handleDeleteReservation} />} />
+          <Route path="/" element={<Navigate to="/planes" />} ></Route>
+          <Route path ="/planes/" element={<Planes loggedIn={loggedIn} userReservations={userReservations} onDelete={handleDeleteReservation} />} />
           <Route path ="/planes/:type" element={<Status loggedIn={loggedIn} userReservations={userReservations} userId={user.id} onBook={handleCreateReservation} />} />
           <Route path="*" element={<NotFound />} />
           <Route path="/login" element={loggedIn ? <Navigate replace to="/" /> : <LoginForm login={handleLogin} />}

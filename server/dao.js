@@ -117,6 +117,18 @@ exports.createReservation = (userId, planeType, seats) => {
     });
   };
 
+  exports.getReservationByUserAndPlaneType = (userId, planeType) => {
+    return new Promise((resolve, reject) => {
+      const query = `SELECT * FROM reservations WHERE user_id = ? AND plane_type = ?`;
+      db.get(query, [userId, planeType], (error, row) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(row);
+        }
+      });
+    });
+  };
   // Seat DAO methods
 
   /*
@@ -164,7 +176,6 @@ exports.createReservation = (userId, planeType, seats) => {
 
   exports.checkSeatsAvailability = async (seatIds) => {
     try {
-      console.log('in dao: ' + seatIds);
   
       // Generate the placeholders for the SQL query
       const placeholders = seatIds.map(() => '?').join(', ');

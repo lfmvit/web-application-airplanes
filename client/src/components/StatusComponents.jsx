@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Container, Row, Col, Button, Form, Card } from 'react-bootstrap';
+import { Container, Row, Col, Button, Form, Card, Alert, Modal } from 'react-bootstrap';
 import API from '../API.js';
-import { Reservation } from '../models.js';
 import '../App.css';
 
-const Status = ({ loggedIn, onBook, userId }) => {
+const Status = ({ loggedIn, onBook, userId, userReservations }) => {
   const { type } = useParams();
   const [seats, setSeats] = useState([]);
   const [seatStatus, setSeatStatus] = useState({
@@ -20,6 +19,11 @@ const Status = ({ loggedIn, onBook, userId }) => {
   const [occupiedSeats, setOccupiedSeats] = useState([]);
   const [showPopup, setShowPopup] = useState(false);
   const [reservationDetails, setReservationDetails] = useState(null);
+  const [isReserving, setIsReserving] = useState(false); // track reservation status to not allow the user to perform shenanigans
+
+  const [alreadyReserved, setAlreadyReserved] = useState(false)
+  const [showModal, setShowModal] = useState(false);
+
 
 
   const navigate = useNavigate();
@@ -35,7 +39,25 @@ const Status = ({ loggedIn, onBook, userId }) => {
         // Handle error
       }
     };
+    const checkAlreadyReserved = () => {
+      if (loggedIn) {
+
+        const existingReservation = userReservations.find(
+          (reservation) => reservation.planeType === type
+        );
+
+        if (existingReservation) {
+          setAlreadyReserved(true);
+          setShowModal(true);
+        } else {
+          setAlreadyReserved(false);
+          setShowModal(false);
+        }
+      }
+    };
+
     fetchSeatStatuses();
+    checkAlreadyReserved()
   }, [type]);
 
   useEffect(() => {
@@ -54,6 +76,16 @@ const Status = ({ loggedIn, onBook, userId }) => {
       occupiedSeats,
       requestedSeats,
     });
+  };
+
+  const getBookedSeats = () => {
+    const reservation = userReservations.find(reservation => reservation.planeType === type);
+    
+    if (reservation) {
+      return reservation.seats.map(seat => seat.seat).join(', ');
+    }
+    
+    return '';
   };
 
   const reserveSeat = (seatId, seatCode) => {
@@ -128,18 +160,21 @@ const Status = ({ loggedIn, onBook, userId }) => {
       const seat = seats.find((seat) => seat.row + seat.position === seatCode);
       return { seat: seat.row + seat.position, id: seat.id };
     });
-  
+
     const reservation = {
       userId: userId,
       type: type,
       seats: requestedSeats,
     };
-  
+
     setReservationDetails(reservation);
     setShowPopup(true);
   };
 
   const confirmReservation = async () => {
+
+    setShowPopup(false);
+
     const requestedSeats = selectedSeats.map((seatCode) => {
       const seat = seats.find((seat) => seat.row + seat.position === seatCode);
       return { seat: seat.row + seat.position, id: seat.id };
@@ -152,7 +187,11 @@ const Status = ({ loggedIn, onBook, userId }) => {
     };
 
     try {
+
+      setIsReserving(true); // Set isReserving to true during the reservation process
+
       await API.createReservation(reservation);
+      setIsReserving(false); // Set isReserving to true during the reservation process
       onBook()
       resetSeats();
       navigate('/');
@@ -163,6 +202,9 @@ const Status = ({ loggedIn, onBook, userId }) => {
       if (error.occupiedSeats) {
         // Update the occupied seats state
         setOccupiedSeats(error.occupiedSeats);
+
+        //show error?
+        setError('Error! Some seats are not available anymore! Check again the grid! You can try to book again in a moment.');
 
         // Blink the occupied seats for 5 seconds
         const blinkInterval = setInterval(() => {
@@ -183,10 +225,16 @@ const Status = ({ loggedIn, onBook, userId }) => {
         setTimeout(() => {
           clearInterval(blinkInterval);
           setOccupiedSeats([]);
+          setError(''); // Clear the error message
+          setIsReserving(false); // Set isReserving to true during the reservation process
+
+
         }, 5000);
       }
     }
   };
+
+
 
   const renderSeatGrid = () => {
     let seatsPerRow;
@@ -218,7 +266,7 @@ const Status = ({ loggedIn, onBook, userId }) => {
                 <Button
                   className={`seat ${seat.status} ${occupiedSeats.includes(seat.id) ? 'blink' : ''}`}
                   onClick={() => reserveSeat(seat.id, seat.row + seat.position)}
-                  disabled={!loggedIn || seat.status === 'occupied'}
+                  disabled={!loggedIn || seat.status === 'occupied' || isReserving || alreadyReserved}
                   style={{ width: '40px', height: '40px', padding: '0' }}
                 >
                   {seat.row}
@@ -238,29 +286,29 @@ const Status = ({ loggedIn, onBook, userId }) => {
         <Card.Header as="h5" className="bg-primary text-white text-center">Current Seats for our {type} plane:</Card.Header>
       </Card>
       <Row>
-      {showPopup && (
-      <div className="reservation-popup">
-        <Card>
-          <Card.Header as="h5">Reservation Details</Card.Header>
-          <Card.Body>
-            {/* Display reservation details */}
-            <p>User ID: {reservationDetails.userId}</p>
-            <p>Type: {reservationDetails.type}</p>
-            <p>Seats: {reservationDetails.seats.map((seat) => seat.seat).join(', ')}</p>
-            
-            {/* Confirm and cancel buttons */}
-            <div className="d-flex justify-content-end">
-              <Button variant="primary" onClick={confirmReservation}>
-                Confirm
-              </Button>
-              <Button variant="secondary" onClick={() => {setShowPopup(false); resetSeats();}}>
-                Cancel
-              </Button>
-            </div>
-          </Card.Body>
-        </Card>
-      </div>
-    )}
+        {showPopup && (
+          <div className="reservation-popup">
+            <Card>
+              <Card.Header as="h5">Reservation Details</Card.Header>
+              <Card.Body>
+                {/* Display reservation details */}
+                <p>User ID: {reservationDetails.userId}</p>
+                <p>Type: {reservationDetails.type}</p>
+                <p>Seats: {reservationDetails.seats.map((seat) => seat.seat).join(', ')}</p>
+
+                {/* Confirm and cancel buttons */}
+                <div className="d-flex justify-content-end">
+                  <Button variant="primary" onClick={confirmReservation}>
+                    Confirm
+                  </Button>
+                  <Button variant="secondary" onClick={() => { setShowPopup(false); resetSeats(); }}>
+                    Cancel
+                  </Button>
+                </div>
+              </Card.Body>
+            </Card>
+          </div>
+        )}
         <Col xs={12} md={6} className="mt-5 justify-content-center">
           <Card className="booking-form">
             <Card.Header as="h5" className="bg-primary text-white">Booking Form</Card.Header>
@@ -269,10 +317,10 @@ const Status = ({ loggedIn, onBook, userId }) => {
                 <p>Total Seats: {seatStatus.totalSeats}</p>
                 <p>Available Seats: {seatStatus.availableSeats}</p>
                 <p>Occupied Seats: {seatStatus.occupiedSeats}</p>
-                {loggedIn && (
+                {loggedIn && !alreadyReserved && (
                   <>
                     <p>Requested Seats: {seatStatus.requestedSeats}</p>
-                      <Form.Label className="mr-3">Enter a number here for autofind:</Form.Label>
+                    <Form.Label className="mr-3">Enter a number here for autofind:</Form.Label>
                     <div className="d-flex align-items-center">
                       <Form.Control
                         type="number"
@@ -287,36 +335,63 @@ const Status = ({ loggedIn, onBook, userId }) => {
                     </div>
                   </>
                 )}
-                {error && <p className="text-danger mt-2">{error}</p>}
-                {loggedIn && selectedSeats.length > 0 && (
+                {error && (
+                  <Alert variant="danger" dismissible onClose={() => setError('')}>
+                    {error}
+                  </Alert>
+                )}                {loggedIn && selectedSeats.length > 0 && (
                   <>
                     <p className="selected-seats-label mt-3">Selected Seats:</p>
                     <p className='selected-seat mt-3'> {selectedSeats.join(', ')}</p>
                     <div className="d-flex justify-content-center align-items-center">
-            <Button variant="danger" onClick={resetSeats}>
-              Reset
-            </Button>
-            <Button variant="success" onClick={bookSeats}>
-              Book now!
-            </Button>
-          </div>
+                      <Button variant="danger" onClick={resetSeats} disabled={isReserving}>
+                        Reset
+                      </Button>
+                      <Button variant="success" onClick={bookSeats} disabled={isReserving}>
+                        Book now!
+                      </Button>
+                    </div>
                   </>
                 )}
-                {!loggedIn && 
-                <p>Perform   <Link to="/login"> LOGIN </Link> to Book!</p>}
+                {!loggedIn &&
+                  <p>Perform   <Link to="/login"> LOGIN </Link> to Book!</p>}
+
+                {alreadyReserved && loggedIn &&(
+                <>
+                <p>You already have a reservation for this plane.</p>
+                <p className="selected-seats-label mt-3">Booked Seats:</p>
+                <p className='selected-seat mt-3'> {getBookedSeats(userReservations, type)}</p>
+                
+                </>
+                )}
+               
               </div>
             </Card.Body>
           </Card>
         </Col>
+        <Modal show={showModal} onHide={() => setShowModal(false)} centered>
+          <Modal.Header closeButton>
+            <Modal.Title>Reservation Details</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <p>You already have a reservation for the {type} plane.</p>
+            <p>If you want to book again for this plane you need to delete your previous reservation from the <Link to ='/planes'> HOMEPAGE</Link></p>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="secondary" onClick={() => setShowModal(false)}>
+              Close
+            </Button>
+          </Modal.Footer>
+        </Modal>
         <Col xs={12} md={6} className="mb-4">
           <div className="scrollable-grid">{renderSeatGrid()}</div>
         </Col>
       </Row>
     </Container>
   );
-  
-  
 
-  };
-  
+
+
+};
+
 export default Status;
