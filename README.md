@@ -18,7 +18,7 @@
   - __GET__ `/api/planes/:type/status` - fetch the seats information of the plane type matching the parameter.
     - Parameter `plane_type`
     - Request Body: __None__
-    - Response Status: `200` No Content, `500` Internal server error
+    - Response Status: `200` No Content, `500` Internal server error, `404` not found
     - Response Body: 
   ```
    seats: [
@@ -60,7 +60,7 @@
   ```
   - __POST__ `/api/user/reservations` - create a new reservation on db the  user who create the request and update the related seats status
     - Prerequisite: user is logged in
-    - Request Body: authenticated request:
+    - Request Body: authenticated request +
 
     ```
      reservation {
@@ -87,7 +87,7 @@
      }
 
     ```
-    - Response Status: `204` no content, `400` bad request (if body is missing, seats requested are taken, or if the user has already a reservation for that plane) `500` Internal server error
+    - Response Status: `204` no content, `400` bad request if body is missing parameters, `500` Internal server error
     - Response Body: NONE or error
 
   __SESSION APIs__
