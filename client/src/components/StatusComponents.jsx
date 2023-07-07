@@ -198,7 +198,6 @@ const Status = ({ loggedIn, onBook, userId, userReservations }) => {
     } catch (error) {
       resetSeats();
 
-      console.log(error);
       if (error.occupiedSeats) {
         // Update the occupied seats state
         setOccupiedSeats(error.occupiedSeats);
