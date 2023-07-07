@@ -39,6 +39,7 @@ function App() {
 
   useEffect(() => {
     const checkAuth = async () => {
+      if(loggedIn){
       try{
       const user = await API.getUserInfo(); // we have the user info here 
       if(user){
@@ -49,7 +50,9 @@ function App() {
     
       setLoggedIn(true);
     };
-  }catch{ err =>{return null;}}
+  }catch{ (err) =>{return null;}}
+  
+  }
   }
     checkAuth();
   }, [loggedIn]);
