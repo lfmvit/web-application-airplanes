@@ -59,7 +59,11 @@ body::after {
   cursor: pointer;
   padding: 10px;
 }
+.seat-grid{
 
+  min-width: 400px;
+
+}
 .available {
   background-color: green;
 }
